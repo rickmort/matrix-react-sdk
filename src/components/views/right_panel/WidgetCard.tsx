@@ -20,6 +20,7 @@ import {Room} from "matrix-js-sdk/src/models/room";
 import MatrixClientContext from "../../../contexts/MatrixClientContext";
 import BaseCard from "./BaseCard";
 import WidgetUtils from "../../../utils/WidgetUtils";
+import AccessibleButton from "../elements/AccessibleButton";
 import AppTile from "../elements/AppTile";
 import {_t} from "../../../languageHandler";
 import {useWidgets} from "./RoomSummaryCard";
@@ -29,7 +30,16 @@ import {SetRightPanelPhasePayload} from "../../../dispatcher/payloads/SetRightPa
 import {Action} from "../../../dispatcher/actions";
 import WidgetStore from "../../../stores/WidgetStore";
 import {ChevronFace, ContextMenuButton, useContextMenu} from "../../structures/ContextMenu";
-import WidgetContextMenu from "../context_menus/WidgetContextMenu";
+import IconizedContextMenu, {
+    IconizedContextMenuOption,
+    IconizedContextMenuOptionList,
+} from "../context_menus/IconizedContextMenu";
+import {AppTileActionPayload} from "../../../dispatcher/payloads/AppTileActionPayload";
+import AccessibleTooltipButton from "../elements/AccessibleTooltipButton";
+import classNames from "classnames";
+import dis from "../../../dispatcher/dispatcher";
+import { WidgetMessagingStore } from "../../../stores/widgets/WidgetMessagingStore";
+import { MatrixCapabilities } from "matrix-widget-api";
 
 interface IProps {
     room: Room;
@@ -59,22 +69,111 @@ const WidgetCard: React.FC<IProps> = ({ room, widgetId, onClose }) => {
     // Don't render anything as we are about to transition
     if (!app || isPinned) return null;
 
+    const header = <React.Fragment>
+        <h2>{ WidgetUtils.getWidgetName(app) }</h2>
+    </React.Fragment>;
+
+    const canModify = WidgetUtils.canUserModifyWidgets(room.roomId);
+
     let contextMenu;
     if (menuDisplayed) {
+        let snapshotButton;
+        const widgetMessaging = WidgetMessagingStore.instance.getMessagingForId(app.id);
+        if (widgetMessaging?.hasCapability(MatrixCapabilities.Screenshots)) {
+            const onSnapshotClick = () => {
+                widgetMessaging.takeScreenshot().then(data => {
+                    dis.dispatch({
+                        action: 'picture_snapshot',
+                        file: data.screenshot,
+                    });
+                }).catch(err => {
+                    console.error("Failed to take screenshot: ", err);
+                });
+                closeMenu();
+            };
+
+            snapshotButton = <IconizedContextMenuOption onClick={onSnapshotClick} label={_t("Take a picture")} />;
+        }
+
+        let deleteButton;
+        if (canModify) {
+            const onDeleteClick = () => {
+                defaultDispatcher.dispatch<AppTileActionPayload>({
+                    action: Action.AppTileDelete,
+                    widgetId: app.id,
+                });
+                closeMenu();
+            };
+
+            deleteButton = <IconizedContextMenuOption onClick={onDeleteClick} label={_t("Remove for everyone")} />;
+        }
+
+        const onRevokeClick = () => {
+            defaultDispatcher.dispatch<AppTileActionPayload>({
+                action: Action.AppTileRevoke,
+                widgetId: app.id,
+            });
+            closeMenu();
+        };
+
         const rect = handle.current.getBoundingClientRect();
         contextMenu = (
-            <WidgetContextMenu
+            <IconizedContextMenu
                 chevronFace={ChevronFace.None}
-                right={window.innerWidth - rect.right - 12}
-                top={rect.bottom + 12}
+                right={window.innerWidth - rect.right}
+                bottom={window.innerHeight - rect.top}
                 onFinished={closeMenu}
-                app={app}
-            />
+            >
+                <IconizedContextMenuOptionList>
+                    { snapshotButton }
+                    { deleteButton }
+                    <IconizedContextMenuOption onClick={onRevokeClick} label={_t("Remove for me")} />
+                </IconizedContextMenuOptionList>
+            </IconizedContextMenu>
         );
     }
 
-    const header = <React.Fragment>
-        <h2>{ WidgetUtils.getWidgetName(app) }</h2>
+    const onPinClick = () => {
+        WidgetStore.instance.pinWidget(app.id);
+    };
+
+    const onEditClick = () => {
+        WidgetUtils.editWidget(room, app);
+    };
+
+    let editButton;
+    if (canModify) {
+        editButton = <AccessibleButton kind="secondary" onClick={onEditClick}>
+            { _t("Edit") }
+        </AccessibleButton>;
+    }
+
+    const pinButtonClasses = canModify ? "" : "mx_WidgetCard_widePinButton";
+
+    let pinButton;
+    if (WidgetStore.instance.canPin(app.id)) {
+        pinButton = <AccessibleButton
+            kind="secondary"
+            onClick={onPinClick}
+            className={pinButtonClasses}
+        >
+            { _t("Pin to room") }
+        </AccessibleButton>;
+    } else {
+        pinButton = <AccessibleTooltipButton
+            title={_t("You can only pin 2 widgets at a time")}
+            tooltipClassName="mx_WidgetCard_maxPinnedTooltip"
+            kind="secondary"
+            className={pinButtonClasses}
+            disabled
+        >
+            { _t("Pin to room") }
+        </AccessibleTooltipButton>;
+    }
+
+    const footer = <React.Fragment>
+        { editButton }
+        { pinButton }
         <ContextMenuButton
             kind="secondary"
             className="mx_WidgetCard_optionsButton"
@@ -83,12 +182,16 @@ const WidgetCard: React.FC<IProps> = ({ room, widgetId, onClose }) => {
             isExpanded={menuDisplayed}
             label={_t("Options")}
         />
+
         { contextMenu }
     </React.Fragment>;
 
     return <BaseCard
         header={header}
-        className="mx_WidgetCard"
+        footer={footer}
+        className={classNames("mx_WidgetCard", {
+            mx_WidgetCard_noEdit: !canModify,
+        })}
         onClose={onClose}
         previousPhase={RightPanelPhases.RoomSummary}
         withoutScrollContainer

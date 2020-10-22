@@ -17,7 +17,7 @@ limitations under the License.
 import React from "react";
 import defaultDispatcher from "../../../dispatcher/dispatcher";
 import * as fbEmitter from "fbemitter";
-import GroupFilterOrderStore from "../../../stores/GroupFilterOrderStore";
+import TagOrderStore from "../../../stores/TagOrderStore";
 import AccessibleTooltipButton from "./AccessibleTooltipButton";
 import classNames from "classnames";
 import { _t } from "../../../languageHandler";
@@ -36,12 +36,12 @@ export default class UserTagTile extends React.PureComponent<IProps, IState> {
         super(props);
 
         this.state = {
-            selected: GroupFilterOrderStore.getSelectedTags().length === 0,
+            selected: TagOrderStore.getSelectedTags().length === 0,
         };
     }
 
     public componentDidMount() {
-        this.tagStoreRef = GroupFilterOrderStore.addListener(this.onTagStoreUpdate);
+        this.tagStoreRef = TagOrderStore.addListener(this.onTagStoreUpdate);
     }
 
     public componentWillUnmount() {
@@ -49,7 +49,7 @@ export default class UserTagTile extends React.PureComponent<IProps, IState> {
     }
 
     private onTagStoreUpdate = () => {
-        const selected = GroupFilterOrderStore.getSelectedTags().length === 0;
+        const selected = TagOrderStore.getSelectedTags().length === 0;
         this.setState({selected});
     };
 

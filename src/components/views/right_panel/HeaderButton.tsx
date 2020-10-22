@@ -31,7 +31,7 @@ interface IProps {
     // The badge to display above the icon
     badge?: React.ReactNode;
     // The parameters to track the click event
-    analytics: Parameters<typeof Analytics.trackEvent>;
+    analytics: string[];
 
     // Button name
     name: string;

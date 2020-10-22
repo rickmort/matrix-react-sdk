@@ -96,7 +96,7 @@ function safeCounterpartTranslate(text: string, options?: object) {
     return translated;
 }
 
-export interface IVariables {
+interface IVariables {
     count?: number;
     [key: string]: number | string;
 }

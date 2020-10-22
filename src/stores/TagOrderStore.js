@@ -33,9 +33,9 @@ const INITIAL_STATE = {
 };
 
 /**
- * A class for storing application state for ordering tags in the GroupFilterPanel.
+ * A class for storing application state for ordering tags in the TagPanel.
  */
-class GroupFilterOrderStore extends Store {
+class TagOrderStore extends Store {
     constructor() {
         super(dis);
 
@@ -268,7 +268,7 @@ class GroupFilterOrderStore extends Store {
     }
 }
 
-if (global.singletonGroupFilterOrderStore === undefined) {
-    global.singletonGroupFilterOrderStore = new GroupFilterOrderStore();
+if (global.singletonTagOrderStore === undefined) {
+    global.singletonTagOrderStore = new TagOrderStore();
 }
-export default global.singletonGroupFilterOrderStore;
+export default global.singletonTagOrderStore;

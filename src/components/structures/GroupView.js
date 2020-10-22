@@ -620,7 +620,7 @@ export default class GroupView extends React.Component {
                 profileForm: newProfileForm,
 
                 // Indicate that FlairStore needs to be poked to show this change
-                // in TagTile (GroupFilterPanel), Flair and GroupTile (MyGroups).
+                // in TagTile (TagPanel), Flair and GroupTile (MyGroups).
                 avatarChanged: true,
             });
         }).catch((e) => {
@@ -649,6 +649,7 @@ export default class GroupView extends React.Component {
                 editing: false,
                 summary: null,
             });
+            dis.dispatch({action: 'panel_disable'});
             this._initGroupStore(this.props.groupId);
 
             if (this.state.avatarChanged) {
@@ -869,7 +870,10 @@ export default class GroupView extends React.Component {
                     { _t('Add rooms to this community') }
                 </div>
             </AccessibleButton>) : <div />;
-
+        const roomDetailListClassName = classnames({
+            "mx_fadable": true,
+            "mx_fadable_faded": this.state.editing,
+        });
         return <div className="mx_GroupView_rooms">
             <div className="mx_GroupView_rooms_header">
                 <h3>
@@ -880,7 +884,9 @@ export default class GroupView extends React.Component {
             </div>
             { this.state.groupRoomsLoading ?
                 <Spinner /> :
-                <RoomDetailList rooms={this.state.groupRooms} />
+                <RoomDetailList
+                    rooms={this.state.groupRooms}
+                    className={roomDetailListClassName} />
             }
         </div>;
     }

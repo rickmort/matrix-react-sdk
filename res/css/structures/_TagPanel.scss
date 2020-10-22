@@ -14,9 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-.mx_GroupFilterPanel {
+.mx_TagPanel {
     flex: 1;
-    background-color: $groupFilterPanel-bg-color;
+    background-color: $tagpanel-bg-color;
     cursor: pointer;
 
     display: flex;
@@ -26,49 +26,49 @@ limitations under the License.
     min-height: 0;
 }
 
-.mx_GroupFilterPanel_items_selected {
+.mx_TagPanel_items_selected {
     cursor: pointer;
 }
 
-.mx_GroupFilterPanel .mx_GroupFilterPanel_divider {
+.mx_TagPanel .mx_TagPanel_divider {
     height: 0px;
     width: 90%;
     border: none;
-    border-bottom: 1px solid $groupFilterPanel-divider-color;
+    border-bottom: 1px solid $tagpanel-divider-color;
 }
 
-.mx_GroupFilterPanel .mx_GroupFilterPanel_scroller {
+.mx_TagPanel .mx_TagPanel_scroller {
     flex-grow: 1;
     width: 100%;
 }
 
-.mx_GroupFilterPanel .mx_GroupFilterPanel_tagTileContainer {
+.mx_TagPanel .mx_TagPanel_tagTileContainer {
     display: flex;
     flex-direction: column;
     align-items: center;
 
     padding-top: 6px;
 }
-.mx_GroupFilterPanel .mx_GroupFilterPanel_tagTileContainer > div {
+.mx_TagPanel .mx_TagPanel_tagTileContainer > div {
     margin: 6px 0;
 }
 
-.mx_GroupFilterPanel .mx_TagTile {
+.mx_TagPanel .mx_TagTile {
     // opacity: 0.5;
     position: relative;
 }
 
-.mx_GroupFilterPanel .mx_TagTile.mx_TagTile_prototype {
+.mx_TagPanel .mx_TagTile.mx_TagTile_prototype {
     padding: 3px;
 }
 
-.mx_GroupFilterPanel .mx_TagTile:focus,
-.mx_GroupFilterPanel .mx_TagTile:hover,
-.mx_GroupFilterPanel .mx_TagTile.mx_TagTile_selected {
+.mx_TagPanel .mx_TagTile:focus,
+.mx_TagPanel .mx_TagTile:hover,
+.mx_TagPanel .mx_TagTile.mx_TagTile_selected {
     // opacity: 1;
 }
 
-.mx_GroupFilterPanel .mx_TagTile.mx_TagTile_selected_prototype {
+.mx_TagPanel .mx_TagTile.mx_TagTile_selected_prototype {
     background-color: $primary-bg-color;
     border-radius: 6px;
 }
@@ -108,7 +108,7 @@ limitations under the License.
     }
 }
 
-.mx_GroupFilterPanel .mx_TagTile_plus {
+.mx_TagPanel .mx_TagTile_plus {
     margin-bottom: 12px;
     height: 32px;
     width: 32px;
@@ -132,7 +132,7 @@ limitations under the License.
     }
 }
 
-.mx_GroupFilterPanel .mx_TagTile.mx_TagTile_selected::before {
+.mx_TagPanel .mx_TagTile.mx_TagTile_selected::before {
     content: '';
     height: 100%;
     background-color: $accent-color;
@@ -142,7 +142,7 @@ limitations under the License.
     border-radius: 0 3px 3px 0;
 }
 
-.mx_GroupFilterPanel .mx_TagTile.mx_AccessibleButton:focus {
+.mx_TagPanel .mx_TagTile.mx_AccessibleButton:focus {
     filter: none;
 }
 

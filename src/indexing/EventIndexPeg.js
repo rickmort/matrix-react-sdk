@@ -21,7 +21,6 @@ limitations under the License.
 
 import PlatformPeg from "../PlatformPeg";
 import EventIndex from "../indexing/EventIndex";
-import {MatrixClientPeg} from "../MatrixClientPeg";
 import SettingsStore from '../settings/SettingsStore';
 import {SettingLevel} from "../settings/SettingLevel";
 
@@ -71,13 +70,9 @@ class EventIndexPeg {
     async initEventIndex() {
         const index = new EventIndex();
         const indexManager = PlatformPeg.get().getEventIndexingManager();
-        const client = MatrixClientPeg.get();
-
-        const userId = client.getUserId();
-        const deviceId = client.getDeviceId();
 
         try {
-            await indexManager.initEventIndex(userId, deviceId);
+            await indexManager.initEventIndex();
 
             const userVersion = await indexManager.getUserVersion();
             const eventIndexIsEmpty = await indexManager.isEventIndexEmpty();
@@ -88,7 +83,7 @@ class EventIndexPeg {
                 await indexManager.closeEventIndex();
                 await this.deleteEventIndex();
 
-                await indexManager.initEventIndex(userId, deviceId);
+                await indexManager.initEventIndex();
                 await indexManager.setUserVersion(INDEX_VERSION);
             }
 

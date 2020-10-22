@@ -36,7 +36,6 @@ interface IProps {
         // the react element to put into the tooltip
         label: React.ReactNode;
         forceOnRight?: boolean;
-        yOffset?: number;
 }
 
 export default class Tooltip extends React.Component<IProps> {
@@ -47,7 +46,6 @@ export default class Tooltip extends React.Component<IProps> {
 
     public static readonly defaultProps = {
         visible: true,
-        yOffset: 0,
     };
 
     // Create a wrapper for the tooltip outside the parent and attach it to the body element
@@ -84,9 +82,9 @@ export default class Tooltip extends React.Component<IProps> {
             offset = Math.floor(parentBox.height - MIN_TOOLTIP_HEIGHT);
         }
 
-        style.top = (parentBox.top - 2 + this.props.yOffset) + window.pageYOffset + offset;
+        style.top = (parentBox.top - 2) + window.pageYOffset + offset;
         if (!this.props.forceOnRight && parentBox.right > window.innerWidth / 2) {
-            style.right = window.innerWidth - parentBox.right - window.pageXOffset - 16;
+            style.right = window.innerWidth - parentBox.right - window.pageXOffset - 8;
         } else {
             style.left = parentBox.right + window.pageXOffset + 6;
         }

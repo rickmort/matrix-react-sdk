@@ -14,38 +14,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { ICryptoCallbacks, IDeviceTrustLevel, ISecretStorageKeyInfo } from 'matrix-js-sdk/src/matrix';
-import { MatrixClient } from 'matrix-js-sdk/src/client';
 import Modal from './Modal';
 import * as sdk from './index';
 import {MatrixClientPeg} from './MatrixClientPeg';
 import { deriveKey } from 'matrix-js-sdk/src/crypto/key_passphrase';
 import { decodeRecoveryKey } from 'matrix-js-sdk/src/crypto/recoverykey';
 import { _t } from './languageHandler';
-import { encodeBase64 } from "matrix-js-sdk/src/crypto/olmlib";
+import {encodeBase64} from "matrix-js-sdk/src/crypto/olmlib";
 import { isSecureBackupRequired } from './utils/WellKnownUtils';
 import AccessSecretStorageDialog from './components/views/dialogs/security/AccessSecretStorageDialog';
 import RestoreKeyBackupDialog from './components/views/dialogs/security/RestoreKeyBackupDialog';
 import SettingsStore from "./settings/SettingsStore";
-import SecurityCustomisations from "./customisations/Security";
 
 // This stores the secret storage private keys in memory for the JS SDK. This is
 // only meant to act as a cache to avoid prompting the user multiple times
 // during the same single operation. Use `accessSecretStorage` below to scope a
 // single secret storage operation, as it will clear the cached keys once the
 // operation ends.
-let secretStorageKeys: Record<string, Uint8Array> = {};
-let secretStorageKeyInfo: Record<string, ISecretStorageKeyInfo> = {};
+let secretStorageKeys = {};
+let secretStorageKeyInfo = {};
 let secretStorageBeingAccessed = false;
 
 let nonInteractive = false;
 
-let dehydrationCache: {
-    key?: Uint8Array,
-    keyInfo?: ISecretStorageKeyInfo,
-} = {};
+let dehydrationCache = {};
 
-function isCachingAllowed(): boolean {
+function isCachingAllowed() {
     return secretStorageBeingAccessed;
 }
 
@@ -56,7 +50,7 @@ function isCachingAllowed(): boolean {
  *
  * @returns {bool}
  */
-export function isSecretStorageBeingAccessed(): boolean {
+export function isSecretStorageBeingAccessed() {
     return secretStorageBeingAccessed;
 }
 
@@ -66,7 +60,7 @@ export class AccessCancelledError extends Error {
     }
 }
 
-async function confirmToDismiss(): Promise<boolean> {
+async function confirmToDismiss() {
     const QuestionDialog = sdk.getComponent("dialogs.QuestionDialog");
     const [sure] = await Modal.createDialog(QuestionDialog, {
         title: _t("Cancel entering passphrase?"),
@@ -78,9 +72,7 @@ async function confirmToDismiss(): Promise<boolean> {
     return !sure;
 }
 
-function makeInputToKey(
-    keyInfo: ISecretStorageKeyInfo,
-): (keyParams: { passphrase: string, recoveryKey: string }) => Promise<Uint8Array> {
+function makeInputToKey(keyInfo) {
     return async ({ passphrase, recoveryKey }) => {
         if (passphrase) {
             return deriveKey(
@@ -94,10 +86,7 @@ function makeInputToKey(
     };
 }
 
-async function getSecretStorageKey(
-    { keys: keyInfos }: { keys: Record<string, ISecretStorageKeyInfo> },
-    ssssItemName,
-): Promise<[string, Uint8Array]> {
+async function getSecretStorageKey({ keys: keyInfos }, ssssItemName) {
     const keyInfoEntries = Object.entries(keyInfos);
     if (keyInfoEntries.length > 1) {
         throw new Error("Multiple storage key requests not implemented");
@@ -111,16 +100,9 @@ async function getSecretStorageKey(
 
     if (dehydrationCache.key) {
         if (await MatrixClientPeg.get().checkSecretStorageKey(dehydrationCache.key, keyInfo)) {
-            cacheSecretStorageKey(keyId, keyInfo, dehydrationCache.key);
+            cacheSecretStorageKey(keyId, dehydrationCache.key, keyInfo);
             return [keyId, dehydrationCache.key];
         }
-    }
-
-    const keyFromCustomisations = SecurityCustomisations.getSecretStorageKey?.();
-    if (keyFromCustomisations) {
-        console.log("Using key from security customisations (secret storage)")
-        cacheSecretStorageKey(keyId, keyInfo, keyFromCustomisations);
-        return [keyId, keyFromCustomisations];
     }
 
     if (nonInteractive) {
@@ -157,21 +139,12 @@ async function getSecretStorageKey(
     const key = await inputToKey(input);
 
     // Save to cache to avoid future prompts in the current session
-    cacheSecretStorageKey(keyId, keyInfo, key);
+    cacheSecretStorageKey(keyId, key, keyInfo);
 
     return [keyId, key];
 }
 
-export async function getDehydrationKey(
-    keyInfo: ISecretStorageKeyInfo,
-    checkFunc: (Uint8Array) => void,
-): Promise<Uint8Array> {
-    const keyFromCustomisations = SecurityCustomisations.getSecretStorageKey?.();
-    if (keyFromCustomisations) {
-        console.log("Using key from security customisations (dehydration)")
-        return keyFromCustomisations;
-    }
-
+export async function getDehydrationKey(keyInfo, checkFunc) {
     const inputToKey = makeInputToKey(keyInfo);
     const { finished } = Modal.createTrackedDialog("Access Secret Storage dialog", "",
         AccessSecretStorageDialog,
@@ -212,24 +185,20 @@ export async function getDehydrationKey(
     return key;
 }
 
-function cacheSecretStorageKey(
-    keyId: string,
-    keyInfo: ISecretStorageKeyInfo,
-    key: Uint8Array,
-): void {
+function cacheSecretStorageKey(keyId, key, keyInfo) {
     if (isCachingAllowed()) {
         secretStorageKeys[keyId] = key;
         secretStorageKeyInfo[keyId] = keyInfo;
     }
 }
 
-async function onSecretRequested(
-    userId: string,
-    deviceId: string,
-    requestId: string,
-    name: string,
-    deviceTrust: IDeviceTrustLevel,
-): Promise<string> {
+const onSecretRequested = async function({
+    user_id: userId,
+    device_id: deviceId,
+    request_id: requestId,
+    name,
+    device_trust: deviceTrust,
+}) {
     console.log("onSecretRequested", userId, deviceId, requestId, name, deviceTrust);
     const client = MatrixClientPeg.get();
     if (userId !== client.getUserId()) {
@@ -264,16 +233,16 @@ async function onSecretRequested(
         return key && encodeBase64(key);
     }
     console.warn("onSecretRequested didn't recognise the secret named ", name);
-}
+};
 
-export const crossSigningCallbacks: ICryptoCallbacks = {
+export const crossSigningCallbacks = {
     getSecretStorageKey,
     cacheSecretStorageKey,
     onSecretRequested,
     getDehydrationKey,
 };
 
-export async function promptForBackupPassphrase(): Promise<Uint8Array> {
+export async function promptForBackupPassphrase() {
     let key;
 
     const { finished } = Modal.createTrackedDialog('Restore Backup', '', RestoreKeyBackupDialog, {
@@ -323,7 +292,7 @@ export async function accessSecretStorage(func = async () => { }, forceReset = f
                 /* priority = */ false,
                 /* static = */ true,
                 /* options = */ {
-                    onBeforeClose: async (reason) => {
+                    onBeforeClose(reason) {
                         // If Secure Backup is required, you cannot leave the modal.
                         if (reason === "backgroundClick") {
                             return !isSecureBackupRequired();
@@ -360,25 +329,20 @@ export async function accessSecretStorage(func = async () => { }, forceReset = f
 
             const keyId = Object.keys(secretStorageKeys)[0];
             if (keyId && SettingsStore.getValue("feature_dehydration")) {
-                let dehydrationKeyInfo = {};
-                if (secretStorageKeyInfo[keyId] && secretStorageKeyInfo[keyId].passphrase) {
-                    dehydrationKeyInfo = { passphrase: secretStorageKeyInfo[keyId].passphrase };
-                }
+                const dehydrationKeyInfo =
+                      secretStorageKeyInfo[keyId] && secretStorageKeyInfo[keyId].passphrase
+                      ? {passphrase: secretStorageKeyInfo[keyId].passphrase}
+                      : {};
                 console.log("Setting dehydration key");
                 await cli.setDehydrationKey(secretStorageKeys[keyId], dehydrationKeyInfo, "Backup device");
-            } else if (!keyId) {
-                console.warn("Not setting dehydration key: no SSSS key found");
             } else {
-                console.log("Not setting dehydration key: feature disabled");
+                console.log("Not setting dehydration key: no SSSS key found");
             }
         }
 
         // `return await` needed here to ensure `finally` block runs after the
         // inner operation completes.
         return await func();
-    } catch (e) {
-        SecurityCustomisations.catchAccessSecretStorageError?.(e);
-        console.error(e);
     } finally {
         // Clear secret storage key cache now that work is complete
         secretStorageBeingAccessed = false;
@@ -390,9 +354,7 @@ export async function accessSecretStorage(func = async () => { }, forceReset = f
 }
 
 // FIXME: this function name is a bit of a mouthful
-export async function tryToUnlockSecretStorageWithDehydrationKey(
-    client: MatrixClient,
-): Promise<void> {
+export async function tryToUnlockSecretStorageWithDehydrationKey(client) {
     const key = dehydrationCache.key;
     let restoringBackup = false;
     if (key && await client.isSecretStorageReady()) {
@@ -404,10 +366,10 @@ export async function tryToUnlockSecretStorageWithDehydrationKey(
 
             // we also need to set a new dehydrated device to replace the
             // device we rehydrated
-            let dehydrationKeyInfo = {};
-            if (dehydrationCache.keyInfo && dehydrationCache.keyInfo.passphrase) {
-                dehydrationKeyInfo = { passphrase: dehydrationCache.keyInfo.passphrase };
-            }
+            const dehydrationKeyInfo =
+                  dehydrationCache.keyInfo && dehydrationCache.keyInfo.passphrase
+                  ? {passphrase: dehydrationCache.keyInfo.passphrase}
+                  : {};
             await client.setDehydrationKey(key, dehydrationKeyInfo, "Backup device");
 
             // and restore from backup

@@ -1,5 +1,7 @@
 /*
-Copyright 2015-2020 The Matrix.org Foundation C.I.C.
+Copyright 2015, 2016 OpenMarket Ltd
+Copyright 2017, 2018 New Vector Ltd
+Copyright 2019 The Matrix.org Foundation C.I.C.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +26,6 @@ import Resend from '../../Resend';
 import dis from '../../dispatcher/dispatcher';
 import {messageForResourceLimitError, messageForSendError} from '../../utils/ErrorUtils';
 import {Action} from "../../dispatcher/actions";
-import { CallState, CallType } from 'matrix-js-sdk/lib/webrtc/call';
 
 const STATUS_BAR_HIDDEN = 0;
 const STATUS_BAR_EXPANDED = 1;
@@ -45,12 +46,10 @@ export default class RoomStatusBar extends React.Component {
         // Used to suggest to the user to invite someone
         sentMessageAndIsAlone: PropTypes.bool,
 
-        // The active call in the room, if any (means we show the call bar
-        // along with the status of the call)
-        callState: PropTypes.string,
-
-        // The type of the call in progress, or null if no call is in progress
-        callType: PropTypes.string,
+        // true if there is an active call in this room (means we show
+        // the 'Active Call' text in the status bar if there is nothing
+        // more interesting)
+        hasActiveCall: PropTypes.bool,
 
         // true if the room is being peeked at. This affects components that shouldn't
         // logically be shown when peeking, such as a prompt to invite people to a room.
@@ -122,12 +121,6 @@ export default class RoomStatusBar extends React.Component {
         });
     };
 
-    _showCallBar() {
-        return (this.props.callState &&
-            (this.props.callState !== CallState.Ended && this.props.callState !== CallState.Ringing)
-        );
-    }
-
     _onResendAllClick = () => {
         Resend.resendUnsentEvents(this.props.room);
         dis.fire(Action.FocusComposer);
@@ -160,7 +153,7 @@ export default class RoomStatusBar extends React.Component {
     // indicate other sizes.
     _getSize() {
         if (this._shouldShowConnectionError() ||
-            this._showCallBar() ||
+            this.props.hasActiveCall ||
             this.props.sentMessageAndIsAlone
         ) {
             return STATUS_BAR_EXPANDED;
@@ -172,7 +165,7 @@ export default class RoomStatusBar extends React.Component {
 
     // return suitable content for the image on the left of the status bar.
     _getIndicator() {
-        if (this._showCallBar()) {
+        if (this.props.hasActiveCall) {
             const TintableSvg = sdk.getComponent("elements.TintableSvg");
             return (
                 <TintableSvg src={require("../../../res/img/element-icons/room/in-call.svg")} width="23" height="20" />
@@ -276,25 +269,6 @@ export default class RoomStatusBar extends React.Component {
         </div>;
     }
 
-    _getCallStatusText() {
-        switch (this.props.callState) {
-            case CallState.CreateOffer:
-            case CallState.InviteSent:
-                return _t('Calling...');
-            case CallState.Connecting:
-            case CallState.CreateAnswer:
-                return _t('Call connecting...');
-            case CallState.Connected:
-                return _t('Active call');
-            case CallState.WaitLocalMedia:
-                if (this.props.callType === CallType.Video) {
-                    return _t('Starting camera...');
-                } else {
-                    return _t('Starting microphone...');
-                }
-        }
-    }
-
     // return suitable content for the main (text) part of the status bar.
     _getContent() {
         if (this._shouldShowConnectionError()) {
@@ -317,10 +291,10 @@ export default class RoomStatusBar extends React.Component {
             return this._getUnsentMessageContent();
         }
 
-        if (this._showCallBar()) {
+        if (this.props.hasActiveCall) {
             return (
                 <div className="mx_RoomStatusBar_callBar">
-                    <b>{ this._getCallStatusText() }</b>
+                    <b>{ _t('Active call') }</b>
                 </div>
             );
         }
