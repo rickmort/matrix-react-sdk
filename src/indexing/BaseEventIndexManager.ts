@@ -108,7 +108,7 @@ export default abstract class BaseEventIndexManager {
      * @return {Promise} A promise that will resolve when the event index is
      * initialized.
      */
-    async initEventIndex(): Promise<void> {
+    async initEventIndex(userId: string, deviceId: string): Promise<void> {
         throw new Error("Unimplemented");
     }
 
