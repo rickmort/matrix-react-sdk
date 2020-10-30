@@ -14,29 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-$groupFilterPanelWidth: 56px; // only applies in this file, used for calculations
+$tagPanelWidth: 56px; // only applies in this file, used for calculations
 
 .mx_LeftPanel {
     background-color: $roomlist-bg-color;
     min-width: 260px;
     max-width: 50%;
 
-    // Create a row-based flexbox for the GroupFilterPanel and the room list
+    // Create a row-based flexbox for the TagPanel and the room list
     display: flex;
 
-    .mx_LeftPanel_GroupFilterPanelContainer {
+    .mx_LeftPanel_tagPanelContainer {
         flex-grow: 0;
         flex-shrink: 0;
-        flex-basis: $groupFilterPanelWidth;
+        flex-basis: $tagPanelWidth;
         height: 100%;
 
-        // Create another flexbox so the GroupFilterPanel fills the container
+        // Create another flexbox so the TagPanel fills the container
         display: flex;
 
-        // GroupFilterPanel handles its own CSS
+        // TagPanel handles its own CSS
     }
 
-    &:not(.mx_LeftPanel_hasGroupFilterPanel) {
+    &:not(.mx_LeftPanel_hasTagPanel) {
         .mx_LeftPanel_roomListContainer {
             width: 100%;
         }
@@ -45,7 +45,7 @@ $groupFilterPanelWidth: 56px; // only applies in this file, used for calculation
     // Note: The 'room list' in this context is actually everything that isn't the tag
     // panel, such as the menu options, breadcrumbs, filtering, etc
     .mx_LeftPanel_roomListContainer {
-        width: calc(100% - $groupFilterPanelWidth);
+        width: calc(100% - $tagPanelWidth);
         background-color: $roomlist-bg-color;
 
         // Create another flexbox (this time a column) for the room list components
@@ -169,10 +169,10 @@ $groupFilterPanelWidth: 56px; // only applies in this file, used for calculation
         min-width: unset;
 
         // We have to forcefully set the width to override the resizer's style attribute.
-        &.mx_LeftPanel_hasGroupFilterPanel {
-            width: calc(68px + $groupFilterPanelWidth) !important;
+        &.mx_LeftPanel_hasTagPanel {
+            width: calc(68px + $tagPanelWidth) !important;
         }
-        &:not(.mx_LeftPanel_hasGroupFilterPanel) {
+        &:not(.mx_LeftPanel_hasTagPanel) {
             width: 68px !important;
         }
 

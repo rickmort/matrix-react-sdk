@@ -105,9 +105,6 @@ export default abstract class BaseEventIndexManager {
     /**
      * Initialize the event index for the given user.
      *
-     * @param {string} userId The event that should be added to the index.
-     * @param {string} deviceId The profile of the event sender at the
-     *
      * @return {Promise} A promise that will resolve when the event index is
      * initialized.
      */

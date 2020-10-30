@@ -44,7 +44,7 @@ import IconizedContextMenu, {
 } from "../views/context_menus/IconizedContextMenu";
 import { CommunityPrototypeStore } from "../../stores/CommunityPrototypeStore";
 import * as fbEmitter from "fbemitter";
-import GroupFilterOrderStore from "../../stores/GroupFilterOrderStore";
+import TagOrderStore from "../../stores/TagOrderStore";
 import { showCommunityInviteDialog } from "../../RoomInvite";
 import dis from "../../dispatcher/dispatcher";
 import { RightPanelPhases } from "../../stores/RightPanelStorePhases";
@@ -87,7 +87,7 @@ export default class UserMenu extends React.Component<IProps, IState> {
     public componentDidMount() {
         this.dispatcherRef = defaultDispatcher.register(this.onAction);
         this.themeWatcherRef = SettingsStore.watchSetting("theme", null, this.onThemeChanged);
-        this.tagStoreRef = GroupFilterOrderStore.addListener(this.onTagStoreUpdate);
+        this.tagStoreRef = TagOrderStore.addListener(this.onTagStoreUpdate);
     }
 
     public componentWillUnmount() {
@@ -257,7 +257,7 @@ export default class UserMenu extends React.Component<IProps, IState> {
         const signupLink = getHostingLink("user-context-menu");
         if (signupLink) {
             hostingLink = (
-                <div className="mx_UserMenu_contextMenu_header mx_UserMenu_contextMenu_hostingLink">
+                <div className="mx_UserMenu_contextMenu_header">
                     {_t(
                         "<a>Upgrade</a> to your own domain", {},
                         {
@@ -452,8 +452,7 @@ export default class UserMenu extends React.Component<IProps, IState> {
     public render() {
         const avatarSize = 32; // should match border-radius of the avatar
 
-        const userId = MatrixClientPeg.get().getUserId();
-        const displayName = OwnProfileStore.instance.displayName || userId;
+        const displayName = OwnProfileStore.instance.displayName || MatrixClientPeg.get().getUserId();
         const avatarUrl = OwnProfileStore.instance.getHttpAvatarUrl(avatarSize);
 
         const prototypeCommunityName = CommunityPrototypeStore.instance.getSelectedCommunityName();
@@ -508,7 +507,7 @@ export default class UserMenu extends React.Component<IProps, IState> {
                     <div className="mx_UserMenu_row">
                         <span className="mx_UserMenu_userAvatarContainer">
                             <BaseAvatar
-                                idName={userId}
+                                idName={displayName}
                                 name={displayName}
                                 url={avatarUrl}
                                 width={avatarSize}

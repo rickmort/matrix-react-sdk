@@ -37,6 +37,7 @@ export default class AuxPanel extends React.Component {
         room: PropTypes.object.isRequired,
         userId: PropTypes.string.isRequired,
         showApps: PropTypes.bool, // Render apps
+        hideAppsDrawer: PropTypes.bool, // Do not display apps drawer and content (may still be rendered)
 
         // set to true to show the file drop target
         draggingFile: PropTypes.bool,
@@ -53,6 +54,7 @@ export default class AuxPanel extends React.Component {
 
     static defaultProps = {
         showApps: true,
+        hideAppsDrawer: false,
     };
 
     constructor(props) {
@@ -168,6 +170,7 @@ export default class AuxPanel extends React.Component {
                 userId={this.props.userId}
                 maxHeight={this.props.maxHeight}
                 showApps={this.props.showApps}
+                hide={this.props.hideAppsDrawer}
                 resizeNotifier={this.props.resizeNotifier}
             />;
         }

@@ -17,7 +17,7 @@ limitations under the License.
 
 import { _t } from './languageHandler';
 
-function getDaysArray(): string[] {
+function getDaysArray() {
     return [
         _t('Sun'),
         _t('Mon'),
@@ -29,7 +29,7 @@ function getDaysArray(): string[] {
     ];
 }
 
-function getMonthsArray(): string[] {
+function getMonthsArray() {
     return [
         _t('Jan'),
         _t('Feb'),
@@ -46,11 +46,11 @@ function getMonthsArray(): string[] {
     ];
 }
 
-function pad(n: number): string {
+function pad(n) {
     return (n < 10 ? '0' : '') + n;
 }
 
-function twelveHourTime(date: Date, showSeconds = false): string {
+function twelveHourTime(date, showSeconds=false) {
     let hours = date.getHours() % 12;
     const minutes = pad(date.getMinutes());
     const ampm = date.getHours() >= 12 ? _t('PM') : _t('AM');
@@ -62,7 +62,7 @@ function twelveHourTime(date: Date, showSeconds = false): string {
     return `${hours}:${minutes}${ampm}`;
 }
 
-export function formatDate(date: Date, showTwelveHour = false): string {
+export function formatDate(date, showTwelveHour=false) {
     const now = new Date();
     const days = getDaysArray();
     const months = getMonthsArray();
@@ -86,7 +86,7 @@ export function formatDate(date: Date, showTwelveHour = false): string {
     return formatFullDate(date, showTwelveHour);
 }
 
-export function formatFullDateNoTime(date: Date): string {
+export function formatFullDateNoTime(date) {
     const days = getDaysArray();
     const months = getMonthsArray();
     return _t('%(weekDayName)s, %(monthName)s %(day)s %(fullYear)s', {
@@ -97,7 +97,7 @@ export function formatFullDateNoTime(date: Date): string {
     });
 }
 
-export function formatFullDate(date: Date, showTwelveHour = false): string {
+export function formatFullDate(date, showTwelveHour=false) {
     const days = getDaysArray();
     const months = getMonthsArray();
     return _t('%(weekDayName)s, %(monthName)s %(day)s %(fullYear)s %(time)s', {
@@ -109,14 +109,14 @@ export function formatFullDate(date: Date, showTwelveHour = false): string {
     });
 }
 
-export function formatFullTime(date: Date, showTwelveHour = false): string {
+export function formatFullTime(date, showTwelveHour=false) {
     if (showTwelveHour) {
         return twelveHourTime(date, true);
     }
     return pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
 }
 
-export function formatTime(date: Date, showTwelveHour = false): string {
+export function formatTime(date, showTwelveHour=false) {
     if (showTwelveHour) {
         return twelveHourTime(date);
     }
@@ -124,7 +124,7 @@ export function formatTime(date: Date, showTwelveHour = false): string {
 }
 
 const MILLIS_IN_DAY = 86400000;
-export function wantsDateSeparator(prevEventDate: Date, nextEventDate: Date): boolean {
+export function wantsDateSeparator(prevEventDate, nextEventDate) {
     if (!nextEventDate || !prevEventDate) {
         return false;
     }

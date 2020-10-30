@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import { RoomListStoreClass } from "./RoomListStore";
-import GroupFilterOrderStore from "../GroupFilterOrderStore";
+import TagOrderStore from "../TagOrderStore";
 import { CommunityFilterCondition } from "./filters/CommunityFilterCondition";
 import { arrayDiff, arrayHasDiff } from "../../utils/arrays";
 
@@ -26,12 +26,12 @@ export class TagWatcher {
     private filters = new Map<string, CommunityFilterCondition>();
 
     constructor(private store: RoomListStoreClass) {
-        GroupFilterOrderStore.addListener(this.onTagsUpdated);
+        TagOrderStore.addListener(this.onTagsUpdated);
     }
 
     private onTagsUpdated = () => {
         const lastTags = Array.from(this.filters.keys());
-        const newTags = GroupFilterOrderStore.getSelectedTags();
+        const newTags = TagOrderStore.getSelectedTags();
 
         if (arrayHasDiff(lastTags, newTags)) {
             // Selected tags changed, do some filtering

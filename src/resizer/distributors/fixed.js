@@ -1,5 +1,5 @@
 /*
-Copyright 2019 - 2020 The Matrix.org Foundation C.I.C.
+Copyright 2019 New Vector Ltd
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ limitations under the License.
 
 import ResizeItem from "../item";
 import Sizer from "../sizer";
-import Resizer, {IConfig} from "../resizer";
 
 /**
 distributors translate a moving cursor into
@@ -28,42 +27,29 @@ they have two methods:
         within the container bounding box. For internal use.
         This method usually ends up calling `resize` once the start offset is subtracted.
 */
-export default class FixedDistributor<C extends IConfig, I extends ResizeItem<any> = ResizeItem<C>> {
-    static createItem(resizeHandle: HTMLDivElement, resizer: Resizer, sizer: Sizer): ResizeItem {
+export default class FixedDistributor {
+    static createItem(resizeHandle, resizer, sizer) {
         return new ResizeItem(resizeHandle, resizer, sizer);
     }
 
-    static createSizer(containerElement: HTMLElement, vertical: boolean, reverse: boolean): Sizer {
+    static createSizer(containerElement, vertical, reverse) {
         return new Sizer(containerElement, vertical, reverse);
     }
 
-    private readonly beforeOffset: number;
-
-    constructor(public readonly item: I) {
+    constructor(item) {
+        this.item = item;
         this.beforeOffset = item.offset();
     }
 
-    public get size() {
-        return this.item.getSize();
-    }
-
-    public set size(size: string) {
-        this.item.setRawSize(size);
-    }
-
-    public resize(size: number) {
+    resize(size) {
         this.item.setSize(size);
     }
 
-    public resizeFromContainerOffset(offset: number) {
+    resizeFromContainerOffset(offset) {
         this.resize(offset - this.beforeOffset);
     }
 
-    public start() {
-        this.item.start();
-    }
+    start() {}
 
-    public finish() {
-        this.item.finish();
-    }
+    finish() {}
 }

@@ -16,7 +16,7 @@ limitations under the License.
 */
 
 import React from 'react';
-import GroupFilterOrderStore from '../../stores/GroupFilterOrderStore';
+import TagOrderStore from '../../stores/TagOrderStore';
 
 import GroupActions from '../../actions/GroupActions';
 
@@ -31,7 +31,7 @@ import AutoHideScrollbar from "./AutoHideScrollbar";
 import SettingsStore from "../../settings/SettingsStore";
 import UserTagTile from "../views/elements/UserTagTile";
 
-class GroupFilterPanel extends React.Component {
+class TagPanel extends React.Component {
     static contextType = MatrixClientContext;
 
     state = {
@@ -44,13 +44,13 @@ class GroupFilterPanel extends React.Component {
         this.context.on("Group.myMembership", this._onGroupMyMembership);
         this.context.on("sync", this._onClientSync);
 
-        this._groupFilterOrderStoreToken = GroupFilterOrderStore.addListener(() => {
+        this._tagOrderStoreToken = TagOrderStore.addListener(() => {
             if (this.unmounted) {
                 return;
             }
             this.setState({
-                orderedTags: GroupFilterOrderStore.getOrderedTags() || [],
-                selectedTags: GroupFilterOrderStore.getSelectedTags(),
+                orderedTags: TagOrderStore.getOrderedTags() || [],
+                selectedTags: TagOrderStore.getSelectedTags(),
             });
         });
         // This could be done by anything with a matrix client
@@ -61,8 +61,8 @@ class GroupFilterPanel extends React.Component {
         this.unmounted = true;
         this.context.removeListener("Group.myMembership", this._onGroupMyMembership);
         this.context.removeListener("sync", this._onClientSync);
-        if (this._groupFilterOrderStoreToken) {
-            this._groupFilterOrderStoreToken.remove();
+        if (this._tagOrderStoreToken) {
+            this._tagOrderStoreToken.remove();
         }
     }
 
@@ -98,7 +98,7 @@ class GroupFilterPanel extends React.Component {
         return (
             <div>
                 <UserTagTile />
-                <hr className="mx_GroupFilterPanel_divider" />
+                <hr className="mx_TagPanel_divider" />
             </div>
         );
     }
@@ -117,8 +117,8 @@ class GroupFilterPanel extends React.Component {
         });
 
         const itemsSelected = this.state.selectedTags.length > 0;
-        const classes = classNames('mx_GroupFilterPanel', {
-            mx_GroupFilterPanel_items_selected: itemsSelected,
+        const classes = classNames('mx_TagPanel', {
+            mx_TagPanel_items_selected: itemsSelected,
         });
 
         let createButton = (
@@ -141,7 +141,7 @@ class GroupFilterPanel extends React.Component {
 
         return <div className={classes} onClick={this.onClearFilterClick}>
             <AutoHideScrollbar
-                className="mx_GroupFilterPanel_scroller"
+                className="mx_TagPanel_scroller"
                 // XXX: Use onMouseDown as a workaround for https://github.com/atlassian/react-beautiful-dnd/issues/273
                 // instead of onClick. Otherwise we experience https://github.com/vector-im/element-web/issues/6253
                 onMouseDown={this.onMouseDown}
@@ -152,7 +152,7 @@ class GroupFilterPanel extends React.Component {
                 >
                     { (provided, snapshot) => (
                             <div
-                                className="mx_GroupFilterPanel_tagTileContainer"
+                                className="mx_TagPanel_tagTileContainer"
                                 ref={provided.innerRef}
                             >
                                 { this.renderGlobalIcon() }
@@ -168,4 +168,4 @@ class GroupFilterPanel extends React.Component {
         </div>;
     }
 }
-export default GroupFilterPanel;
+export default TagPanel;

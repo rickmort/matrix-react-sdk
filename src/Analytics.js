@@ -17,7 +17,7 @@ limitations under the License.
 
 import React from 'react';
 
-import {getCurrentLanguage, _t, _td, IVariables} from './languageHandler';
+import { getCurrentLanguage, _t, _td } from './languageHandler';
 import PlatformPeg from './PlatformPeg';
 import SdkConfig from './SdkConfig';
 import Modal from './Modal';
@@ -27,7 +27,7 @@ const hashRegex = /#\/(groups?|room|user|settings|register|login|forgot_password
 const hashVarRegex = /#\/(group|room|user)\/.*$/;
 
 // Remove all but the first item in the hash path. Redact unexpected hashes.
-function getRedactedHash(hash: string): string {
+function getRedactedHash(hash) {
     // Don't leak URLs we aren't expecting - they could contain tokens/PII
     const match = hashRegex.exec(hash);
     if (!match) {
@@ -44,7 +44,7 @@ function getRedactedHash(hash: string): string {
 
 // Return the current origin, path and hash separated with a `/`. This does
 // not include query parameters.
-function getRedactedUrl(): string {
+function getRedactedUrl() {
     const { origin, hash } = window.location;
     let { pathname } = window.location;
 
@@ -56,25 +56,7 @@ function getRedactedUrl(): string {
     return origin + pathname + getRedactedHash(hash);
 }
 
-interface IData {
-    /* eslint-disable camelcase */
-    gt_ms?: string;
-    e_c?: string;
-    e_a?: string;
-    e_n?: string;
-    e_v?: string;
-    ping?: string;
-    /* eslint-enable camelcase */
-}
-
-interface IVariable {
-    id: number;
-    expl: string; // explanation
-    example: string; // example value
-    getTextVariables?(): IVariables; // object to pass as 2nd argument to `_t`
-}
-
-const customVariables: Record<string, IVariable> = {
+const customVariables = {
     // The Matomo installation at https://matomo.riot.im is currently configured
     // with a limit of 10 custom variables.
     'App Platform': {
@@ -138,7 +120,7 @@ const customVariables: Record<string, IVariable> = {
     },
 };
 
-function whitelistRedact(whitelist: string[], str: string): string {
+function whitelistRedact(whitelist, str) {
     if (whitelist.includes(str)) return str;
     return '<redacted>';
 }
@@ -148,7 +130,7 @@ const CREATION_TS_KEY = "mx_Riot_Analytics_cts";
 const VISIT_COUNT_KEY = "mx_Riot_Analytics_vc";
 const LAST_VISIT_TS_KEY = "mx_Riot_Analytics_lvts";
 
-function getUid(): string {
+function getUid() {
     try {
         let data = localStorage && localStorage.getItem(UID_KEY);
         if (!data && localStorage) {
@@ -163,36 +145,32 @@ function getUid(): string {
 
 const HEARTBEAT_INTERVAL = 30 * 1000; // seconds
 
-export class Analytics {
-    private baseUrl: URL = null;
-    private siteId: string = null;
-    private visitVariables: Record<number, [string, string]> = {}; // {[id: number]: [name: string, value: string]}
-    private firstPage = true;
-    private heartbeatIntervalID: number = null;
-
-    private readonly creationTs: string;
-    private readonly lastVisitTs: string;
-    private readonly visitCount: string;
-
+class Analytics {
     constructor() {
+        this.baseUrl = null;
+        this.siteId = null;
+        this.visitVariables = {};
+
+        this.firstPage = true;
+        this._heartbeatIntervalID = null;
+
         this.creationTs = localStorage && localStorage.getItem(CREATION_TS_KEY);
         if (!this.creationTs && localStorage) {
-            localStorage.setItem(CREATION_TS_KEY, this.creationTs = String(new Date().getTime()));
+            localStorage.setItem(CREATION_TS_KEY, this.creationTs = new Date().getTime());
         }
 
         this.lastVisitTs = localStorage && localStorage.getItem(LAST_VISIT_TS_KEY);
-        this.visitCount = localStorage && localStorage.getItem(VISIT_COUNT_KEY) || "0";
-        this.visitCount = String(parseInt(this.visitCount, 10) + 1); // increment
+        this.visitCount = localStorage && localStorage.getItem(VISIT_COUNT_KEY) || 0;
         if (localStorage) {
-            localStorage.setItem(VISIT_COUNT_KEY, this.visitCount);
+            localStorage.setItem(VISIT_COUNT_KEY, parseInt(this.visitCount, 10) + 1);
         }
     }
 
-    public get disabled() {
+    get disabled() {
         return !this.baseUrl;
     }
 
-    public canEnable() {
+    canEnable() {
         const config = SdkConfig.get();
         return navigator.doNotTrack !== "1" && config && config.piwik && config.piwik.url && config.piwik.siteId;
     }
@@ -201,67 +179,67 @@ export class Analytics {
      * Enable Analytics if initialized but disabled
      * otherwise try and initalize, no-op if piwik config missing
      */
-    public async enable() {
+    async enable() {
         if (!this.disabled) return;
         if (!this.canEnable()) return;
         const config = SdkConfig.get();
 
         this.baseUrl = new URL("piwik.php", config.piwik.url);
         // set constants
-        this.baseUrl.searchParams.set("rec", "1"); // rec is required for tracking
+        this.baseUrl.searchParams.set("rec", 1); // rec is required for tracking
         this.baseUrl.searchParams.set("idsite", config.piwik.siteId); // rec is required for tracking
-        this.baseUrl.searchParams.set("apiv", "1"); // API version to use
-        this.baseUrl.searchParams.set("send_image", "0"); // we want a 204, not a tiny GIF
+        this.baseUrl.searchParams.set("apiv", 1); // API version to use
+        this.baseUrl.searchParams.set("send_image", 0); // we want a 204, not a tiny GIF
         // set user parameters
         this.baseUrl.searchParams.set("_id", getUid()); // uuid
         this.baseUrl.searchParams.set("_idts", this.creationTs); // first ts
-        this.baseUrl.searchParams.set("_idvc", this.visitCount); // visit count
+        this.baseUrl.searchParams.set("_idvc", parseInt(this.visitCount, 10)+ 1); // visit count
         if (this.lastVisitTs) {
             this.baseUrl.searchParams.set("_viewts", this.lastVisitTs); // last visit ts
         }
 
         const platform = PlatformPeg.get();
-        this.setVisitVariable('App Platform', platform.getHumanReadableName());
+        this._setVisitVariable('App Platform', platform.getHumanReadableName());
         try {
-            this.setVisitVariable('App Version', await platform.getAppVersion());
+            this._setVisitVariable('App Version', await platform.getAppVersion());
         } catch (e) {
-            this.setVisitVariable('App Version', 'unknown');
+            this._setVisitVariable('App Version', 'unknown');
         }
 
-        this.setVisitVariable('Chosen Language', getCurrentLanguage());
+        this._setVisitVariable('Chosen Language', getCurrentLanguage());
 
         const hostname = window.location.hostname;
         if (hostname === 'riot.im') {
-            this.setVisitVariable('Instance', window.location.pathname);
+            this._setVisitVariable('Instance', window.location.pathname);
         } else if (hostname.endsWith('.element.io')) {
-            this.setVisitVariable('Instance', hostname.replace('.element.io', ''));
+            this._setVisitVariable('Instance', hostname.replace('.element.io', ''));
         }
 
         let installedPWA = "unknown";
         try {
             // Known to work at least for desktop Chrome
-            installedPWA = String(window.matchMedia('(display-mode: standalone)').matches);
+            installedPWA = window.matchMedia('(display-mode: standalone)').matches;
         } catch (e) { }
-        this.setVisitVariable('Installed PWA', installedPWA);
+        this._setVisitVariable('Installed PWA', installedPWA);
 
         let touchInput = "unknown";
         try {
             // MDN claims broad support across browsers
-            touchInput = String(window.matchMedia('(pointer: coarse)').matches);
+            touchInput = window.matchMedia('(pointer: coarse)').matches;
         } catch (e) { }
-        this.setVisitVariable('Touch Input', touchInput);
+        this._setVisitVariable('Touch Input', touchInput);
 
         // start heartbeat
-        this.heartbeatIntervalID = window.setInterval(this.ping.bind(this), HEARTBEAT_INTERVAL);
+        this._heartbeatIntervalID = window.setInterval(this.ping.bind(this), HEARTBEAT_INTERVAL);
     }
 
     /**
      * Disable Analytics, stop the heartbeat and clear identifiers from localStorage
      */
-    public disable() {
+    disable() {
         if (this.disabled) return;
         this.trackEvent('Analytics', 'opt-out');
-        window.clearInterval(this.heartbeatIntervalID);
+        window.clearInterval(this._heartbeatIntervalID);
         this.baseUrl = null;
         this.visitVariables = {};
         localStorage.removeItem(UID_KEY);
@@ -270,7 +248,7 @@ export class Analytics {
         localStorage.removeItem(LAST_VISIT_TS_KEY);
     }
 
-    private async _track(data: IData) {
+    async _track(data) {
         if (this.disabled) return;
 
         const now = new Date();
@@ -286,13 +264,13 @@ export class Analytics {
             s: now.getSeconds(),
         };
 
-        const url = new URL(this.baseUrl.toString()); // copy
+        const url = new URL(this.baseUrl);
         for (const key in params) {
             url.searchParams.set(key, params[key]);
         }
 
         try {
-            await window.fetch(url.toString(), {
+            await window.fetch(url, {
                 method: "GET",
                 mode: "no-cors",
                 cache: "no-cache",
@@ -303,14 +281,14 @@ export class Analytics {
         }
     }
 
-    public ping() {
+    ping() {
         this._track({
-            ping: "1",
+            ping: 1,
         });
-        localStorage.setItem(LAST_VISIT_TS_KEY, String(new Date().getTime())); // update last visit ts
+        localStorage.setItem(LAST_VISIT_TS_KEY, new Date().getTime()); // update last visit ts
     }
 
-    public trackPageChange(generationTimeMs?: number) {
+    trackPageChange(generationTimeMs) {
         if (this.disabled) return;
         if (this.firstPage) {
             // De-duplicate first page
@@ -325,11 +303,11 @@ export class Analytics {
         }
 
         this._track({
-            gt_ms: String(generationTimeMs),
+            gt_ms: generationTimeMs,
         });
     }
 
-    public trackEvent(category: string, action: string, name?: string, value?: string) {
+    trackEvent(category, action, name, value) {
         if (this.disabled) return;
         this._track({
             e_c: category,
@@ -339,12 +317,12 @@ export class Analytics {
         });
     }
 
-    private setVisitVariable(key: keyof typeof customVariables, value: string) {
+    _setVisitVariable(key, value) {
         if (this.disabled) return;
         this.visitVariables[customVariables[key].id] = [key, value];
     }
 
-    public setLoggedIn(isGuest: boolean, homeserverUrl: string) {
+    setLoggedIn(isGuest, homeserverUrl, identityServerUrl) {
         if (this.disabled) return;
 
         const config = SdkConfig.get();
@@ -352,16 +330,16 @@ export class Analytics {
 
         const whitelistedHSUrls = config.piwik.whitelistedHSUrls || [];
 
-        this.setVisitVariable('User Type', isGuest ? 'Guest' : 'Logged In');
-        this.setVisitVariable('Homeserver URL', whitelistRedact(whitelistedHSUrls, homeserverUrl));
+        this._setVisitVariable('User Type', isGuest ? 'Guest' : 'Logged In');
+        this._setVisitVariable('Homeserver URL', whitelistRedact(whitelistedHSUrls, homeserverUrl));
     }
 
-    public setBreadcrumbs(state: boolean) {
+    setBreadcrumbs(state) {
         if (this.disabled) return;
-        this.setVisitVariable('Breadcrumbs', state ? 'enabled' : 'disabled');
+        this._setVisitVariable('Breadcrumbs', state ? 'enabled' : 'disabled');
     }
 
-    public showDetailsModal = () => {
+    showDetailsModal = () => {
         let rows = [];
         if (!this.disabled) {
             rows = Object.values(this.visitVariables);
@@ -382,7 +360,7 @@ export class Analytics {
                     'e.g. <CurrentPageURL>',
                     {},
                     {
-                        CurrentPageURL: getRedactedUrl,
+                        CurrentPageURL: getRedactedUrl(),
                     },
                 ),
             },
@@ -423,7 +401,7 @@ export class Analytics {
     };
 }
 
-if (!window.mxAnalytics) {
-    window.mxAnalytics = new Analytics();
+if (!global.mxAnalytics) {
+    global.mxAnalytics = new Analytics();
 }
-export default window.mxAnalytics;
+export default global.mxAnalytics;

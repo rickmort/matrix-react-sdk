@@ -16,7 +16,7 @@ limitations under the License.
 
 import * as React from "react";
 import { createRef } from "react";
-import GroupFilterPanel from "./GroupFilterPanel";
+import TagPanel from "./TagPanel";
 import CustomRoomTagPanel from "./CustomRoomTagPanel";
 import classNames from "classnames";
 import dis from "../../dispatcher/dispatcher";
@@ -38,7 +38,6 @@ import AccessibleTooltipButton from "../views/elements/AccessibleTooltipButton";
 import { OwnProfileStore } from "../../stores/OwnProfileStore";
 import { MatrixClientPeg } from "../../MatrixClientPeg";
 import RoomListNumResults from "../views/rooms/RoomListNumResults";
-import LeftPanelWidget from "./LeftPanelWidget";
 
 interface IProps {
     isMinimized: boolean;
@@ -47,7 +46,7 @@ interface IProps {
 
 interface IState {
     showBreadcrumbs: boolean;
-    showGroupFilterPanel: boolean;
+    showTagPanel: boolean;
 }
 
 // List of CSS classes which should be included in keyboard navigation within the room list
@@ -61,7 +60,7 @@ const cssClasses = [
 
 export default class LeftPanel extends React.Component<IProps, IState> {
     private listContainerRef: React.RefObject<HTMLDivElement> = createRef();
-    private groupFilterPanelWatcherRef: string;
+    private tagPanelWatcherRef: string;
     private bgImageWatcherRef: string;
     private focusedElement = null;
     private isDoingStickyHeaders = false;
@@ -71,7 +70,7 @@ export default class LeftPanel extends React.Component<IProps, IState> {
 
         this.state = {
             showBreadcrumbs: BreadcrumbsStore.instance.visible,
-            showGroupFilterPanel: SettingsStore.getValue('TagPanel.enableTagPanel'),
+            showTagPanel: SettingsStore.getValue('TagPanel.enableTagPanel'),
         };
 
         BreadcrumbsStore.instance.on(UPDATE_EVENT, this.onBreadcrumbsUpdate);
@@ -79,8 +78,8 @@ export default class LeftPanel extends React.Component<IProps, IState> {
         OwnProfileStore.instance.on(UPDATE_EVENT, this.onBackgroundImageUpdate);
         this.bgImageWatcherRef = SettingsStore.watchSetting(
             "RoomList.backgroundImage", null, this.onBackgroundImageUpdate);
-        this.groupFilterPanelWatcherRef = SettingsStore.watchSetting("TagPanel.enableTagPanel", null, () => {
-            this.setState({showGroupFilterPanel: SettingsStore.getValue("TagPanel.enableTagPanel")});
+        this.tagPanelWatcherRef = SettingsStore.watchSetting("TagPanel.enableTagPanel", null, () => {
+            this.setState({showTagPanel: SettingsStore.getValue("TagPanel.enableTagPanel")});
         });
 
         // We watch the middle panel because we don't actually get resized, the middle panel does.
@@ -89,7 +88,7 @@ export default class LeftPanel extends React.Component<IProps, IState> {
     }
 
     public componentWillUnmount() {
-        SettingsStore.unwatchSetting(this.groupFilterPanelWatcherRef);
+        SettingsStore.unwatchSetting(this.tagPanelWatcherRef);
         SettingsStore.unwatchSetting(this.bgImageWatcherRef);
         BreadcrumbsStore.instance.off(UPDATE_EVENT, this.onBreadcrumbsUpdate);
         RoomListStore.instance.off(LISTS_UPDATE_EVENT, this.onBreadcrumbsUpdate);
@@ -120,11 +119,8 @@ export default class LeftPanel extends React.Component<IProps, IState> {
         if (settingBgMxc) {
             avatarUrl = MatrixClientPeg.get().mxcUrlToHttp(settingBgMxc, avatarSize, avatarSize);
         }
-
         const avatarUrlProp = `url(${avatarUrl})`;
-        if (!avatarUrl) {
-            document.body.style.removeProperty("--avatar-url");
-        } else if (document.body.style.getPropertyValue("--avatar-url") !== avatarUrlProp) {
+        if (document.body.style.getPropertyValue("--avatar-url") !== avatarUrlProp) {
             document.body.style.setProperty("--avatar-url", avatarUrlProp);
         }
     };
@@ -143,7 +139,7 @@ export default class LeftPanel extends React.Component<IProps, IState> {
         const bottomEdge = list.offsetHeight + list.scrollTop;
         const sublists = list.querySelectorAll<HTMLDivElement>(".mx_RoomSublist");
 
-        const headerRightMargin = 15; // calculated from margins and widths to align with non-sticky tiles
+        const headerRightMargin = 16; // calculated from margins and widths to align with non-sticky tiles
         const headerStickyWidth = list.clientWidth - headerRightMargin;
 
         // We track which styles we want on a target before making the changes to avoid
@@ -214,18 +210,9 @@ export default class LeftPanel extends React.Component<IProps, IState> {
                 if (!header.classList.contains("mx_RoomSublist_headerContainer_stickyBottom")) {
                     header.classList.add("mx_RoomSublist_headerContainer_stickyBottom");
                 }
-
-                const offset = window.innerHeight - (list.parentElement.offsetTop + list.parentElement.offsetHeight);
-                const newBottom = `${offset}px`;
-                if (header.style.bottom !== newBottom) {
-                    header.style.bottom = newBottom;
-                }
             } else {
                 if (header.classList.contains("mx_RoomSublist_headerContainer_stickyBottom")) {
                     header.classList.remove("mx_RoomSublist_headerContainer_stickyBottom");
-                }
-                if (header.style.bottom) {
-                    header.style.removeProperty('bottom');
                 }
             }
 
@@ -388,9 +375,9 @@ export default class LeftPanel extends React.Component<IProps, IState> {
     }
 
     public render(): React.ReactNode {
-        const groupFilterPanel = !this.state.showGroupFilterPanel ? null : (
-            <div className="mx_LeftPanel_GroupFilterPanelContainer">
-                <GroupFilterPanel />
+        const tagPanel = !this.state.showTagPanel ? null : (
+            <div className="mx_LeftPanel_tagPanelContainer">
+                <TagPanel />
                 {SettingsStore.getValue("feature_custom_tags") ? <CustomRoomTagPanel /> : null}
             </div>
         );
@@ -398,6 +385,7 @@ export default class LeftPanel extends React.Component<IProps, IState> {
         const roomList = <RoomList
             onKeyDown={this.onKeyDown}
             resizeNotifier={null}
+            collapsed={false}
             onFocus={this.onFocus}
             onBlur={this.onBlur}
             isMinimized={this.props.isMinimized}
@@ -406,7 +394,7 @@ export default class LeftPanel extends React.Component<IProps, IState> {
 
         const containerClasses = classNames({
             "mx_LeftPanel": true,
-            "mx_LeftPanel_hasGroupFilterPanel": !!groupFilterPanel,
+            "mx_LeftPanel_hasTagPanel": !!tagPanel,
             "mx_LeftPanel_minimized": this.props.isMinimized,
         });
 
@@ -417,7 +405,7 @@ export default class LeftPanel extends React.Component<IProps, IState> {
 
         return (
             <div className={containerClasses}>
-                {groupFilterPanel}
+                {tagPanel}
                 <aside className="mx_LeftPanel_roomListContainer">
                     {this.renderHeader()}
                     {this.renderSearchExplore()}
@@ -435,7 +423,6 @@ export default class LeftPanel extends React.Component<IProps, IState> {
                             {roomList}
                         </div>
                     </div>
-                    { !this.props.isMinimized && <LeftPanelWidget onResize={this.onResize} /> }
                 </aside>
             </div>
         );

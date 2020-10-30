@@ -42,8 +42,6 @@ export default class RoomHeader extends React.Component {
         onLeaveClick: PropTypes.func,
         onCancelClick: PropTypes.func,
         e2eStatus: PropTypes.string,
-        onAppsClick: PropTypes.func,
-        appsShown: PropTypes.bool,
     };
 
     static defaultProps = {
@@ -232,17 +230,6 @@ export default class RoomHeader extends React.Component {
                     title={_t("Forget room")} />;
         }
 
-        let appsButton;
-        if (this.props.onAppsClick) {
-            appsButton =
-                <AccessibleTooltipButton
-                    className={classNames("mx_RoomHeader_button mx_RoomHeader_appsButton", {
-                        mx_RoomHeader_appsButton_highlight: this.props.appsShown,
-                    })}
-                    onClick={this.props.onAppsClick}
-                    title={this.props.appsShown ? _t("Hide Widgets") : _t("Show Widgets")} />;
-        }
-
         let searchButton;
         if (this.props.onSearchClick && this.props.inRoom) {
             searchButton =
@@ -256,7 +243,6 @@ export default class RoomHeader extends React.Component {
             <div className="mx_RoomHeader_buttons">
                 { pinnedEventsButton }
                 { forgetButton }
-                { appsButton }
                 { searchButton }
             </div>;
 

@@ -1,5 +1,6 @@
 /*
-Copyright 2018 - 2020 The Matrix.org Foundation C.I.C.
+Copyright 2018 New Vector Ltd
+Copyright 2019 The Matrix.org Foundation C.I.C.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,105 +15,86 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import {throttle} from "lodash";
-
-import FixedDistributor from "./distributors/fixed";
-import ResizeItem from "./item";
-import Sizer from "./sizer";
-
-interface IClassNames {
+/*
+classNames:
     // class on resize-handle
-    handle?: string;
+    handle: string
     // class on resize-handle
-    reverse?: string;
+    reverse: string
     // class on resize-handle
-    vertical?: string;
+    vertical: string
     // class on container
-    resizing?: string;
-}
+    resizing: string
+*/
 
-export interface IConfig {
-    onResizeStart?(): void;
-    onResizeStop?(): void;
-    onResized?(size: number, id: string, element: HTMLElement): void;
-}
 
-export default class Resizer<C extends IConfig = IConfig> {
-    private classNames: IClassNames;
-
+export default class Resizer {
     // TODO move vertical/horizontal to config option/container class
     // as it doesn't make sense to mix them within one container/Resizer
-    constructor(
-        public container: HTMLElement,
-        private readonly distributorCtor: {
-            new(item: ResizeItem): FixedDistributor<C, any>;
-            createItem(resizeHandle: HTMLDivElement, resizer: Resizer, sizer: Sizer): ResizeItem;
-            createSizer(containerElement: HTMLElement, vertical: boolean, reverse: boolean): Sizer;
-        },
-        public readonly config?: C,
-    ) {
+    constructor(container, distributorCtor, config) {
         if (!container) {
             throw new Error("Resizer requires a non-null `container` arg");
         }
-
+        this.container = container;
+        this.distributorCtor = distributorCtor;
+        this.config = config;
         this.classNames = {
             handle: "resizer-handle",
             reverse: "resizer-reverse",
             vertical: "resizer-vertical",
             resizing: "resizer-resizing",
         };
+        this._onMouseDown = this._onMouseDown.bind(this);
     }
 
-    public setClassNames(classNames: IClassNames) {
+    setClassNames(classNames) {
         this.classNames = classNames;
     }
 
-    public attach() {
-        this.container.addEventListener("mousedown", this.onMouseDown, false);
-        window.addEventListener("resize", this.onResize);
+    attach() {
+        this.container.addEventListener("mousedown", this._onMouseDown, false);
     }
 
-    public detach() {
-        this.container.removeEventListener("mousedown", this.onMouseDown, false);
-        window.removeEventListener("resize", this.onResize);
+    detach() {
+        this.container.removeEventListener("mousedown", this._onMouseDown, false);
     }
 
     /**
     Gives the distributor for a specific resize handle, as if you would have started
     to drag that handle. Can be used to manipulate the size of an item programmatically.
     @param {number} handleIndex the index of the resize handle in the container
-    @return {FixedDistributor} a new distributor for the given handle
+    @return {Distributor} a new distributor for the given handle
     */
-    public forHandleAt(handleIndex: number): FixedDistributor<C> {
-        const handles = this.getResizeHandles();
+    forHandleAt(handleIndex) {
+        const handles = this._getResizeHandles();
         const handle = handles[handleIndex];
         if (handle) {
-            const {distributor} = this.createSizerAndDistributor(<HTMLDivElement>handle);
+            const {distributor} = this._createSizerAndDistributor(handle);
             return distributor;
         }
     }
 
-    public forHandleWithId(id: string): FixedDistributor<C> {
-        const handles = this.getResizeHandles();
+    forHandleWithId(id) {
+        const handles = this._getResizeHandles();
         const handle = handles.find((h) => h.getAttribute("data-id") === id);
         if (handle) {
-            const {distributor} = this.createSizerAndDistributor(<HTMLDivElement>handle);
+            const {distributor} = this._createSizerAndDistributor(handle);
             return distributor;
         }
     }
 
-    public isReverseResizeHandle(el: HTMLElement): boolean {
+    isReverseResizeHandle(el) {
         return el && el.classList.contains(this.classNames.reverse);
     }
 
-    public isResizeHandle(el: HTMLElement): boolean {
+    isResizeHandle(el) {
         return el && el.classList.contains(this.classNames.handle);
     }
 
-    private onMouseDown = (event: MouseEvent) => {
+    _onMouseDown(event) {
         // use closest in case the resize handle contains
         // child dom nodes that can be the target
-        const resizeHandle = event.target && (<HTMLDivElement>event.target).closest(`.${this.classNames.handle}`);
+        const resizeHandle = event.target && event.target.closest(`.${this.classNames.handle}`);
         if (!resizeHandle || resizeHandle.parentElement !== this.container) {
             return;
         }
@@ -127,7 +109,7 @@ export default class Resizer<C extends IConfig = IConfig> {
             this.config.onResizeStart();
         }
 
-        const {sizer, distributor} = this.createSizerAndDistributor(<HTMLDivElement>resizeHandle);
+        const {sizer, distributor} = this._createSizerAndDistributor(resizeHandle);
         distributor.start();
 
         const onMouseMove = (event) => {
@@ -140,10 +122,10 @@ export default class Resizer<C extends IConfig = IConfig> {
             if (this.classNames.resizing) {
                 this.container.classList.remove(this.classNames.resizing);
             }
-            distributor.finish();
             if (this.config.onResizeStop) {
                 this.config.onResizeStop();
             }
+            distributor.finish();
             body.removeEventListener("mouseup", finishResize, false);
             document.removeEventListener("mouseleave", finishResize, false);
             body.removeEventListener("mousemove", onMouseMove, false);
@@ -151,39 +133,21 @@ export default class Resizer<C extends IConfig = IConfig> {
         body.addEventListener("mouseup", finishResize, false);
         document.addEventListener("mouseleave", finishResize, false);
         body.addEventListener("mousemove", onMouseMove, false);
-    };
+    }
 
-    private onResize = throttle(() => {
-        const distributors = this.getDistributors();
-
-        // relax all items if they had any overconstrained flexboxes
-        distributors.forEach(d => d.start());
-        distributors.forEach(d => d.finish());
-    }, 100, {trailing: true, leading: true});
-
-    public getDistributors = () => {
-        return this.getResizeHandles().map(handle => {
-            const {distributor} = this.createSizerAndDistributor(<HTMLDivElement>handle);
-            return distributor;
-        });
-    };
-
-    private createSizerAndDistributor(
-        resizeHandle: HTMLDivElement,
-    ): {sizer: Sizer, distributor: FixedDistributor<any>} {
+    _createSizerAndDistributor(resizeHandle) {
         const vertical = resizeHandle.classList.contains(this.classNames.vertical);
         const reverse = this.isReverseResizeHandle(resizeHandle);
         const Distributor = this.distributorCtor;
         const sizer = Distributor.createSizer(this.container, vertical, reverse);
         const item = Distributor.createItem(resizeHandle, this, sizer);
-        const distributor = new Distributor(item);
+        const distributor = new Distributor(item, this.config);
         return {sizer, distributor};
     }
 
-    private getResizeHandles() {
-        if (!this.container.children) return [];
+    _getResizeHandles() {
         return Array.from(this.container.children).filter(el => {
-            return this.isResizeHandle(<HTMLElement>el);
-        }) as HTMLElement[];
+            return this.isResizeHandle(el);
+        });
     }
 }

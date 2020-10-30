@@ -1,5 +1,5 @@
 /*
-Copyright 2018 - 2020 The Matrix.org Foundation C.I.C.
+Copyright 2018 New Vector Ltd
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,18 +19,18 @@ implements DOM/CSS operations for resizing.
 The sizer determines what CSS mechanism is used for sizing items, like flexbox, ...
 */
 export default class Sizer {
-    constructor(
-        protected readonly container: HTMLElement,
-        protected readonly vertical: boolean,
-        protected readonly reverse: boolean,
-    ) {}
+    constructor(container, vertical, reverse) {
+        this.container = container;
+        this.reverse = reverse;
+        this.vertical = vertical;
+    }
 
     /**
         @param {Element} item the dom element being resized
         @return {number} how far the edge of the item is from the edge of the container
     */
-    public getItemOffset(item: HTMLElement): number {
-        const offset = (this.vertical ? item.offsetTop : item.offsetLeft) - this.getOffset();
+    getItemOffset(item) {
+        const offset = (this.vertical ? item.offsetTop : item.offsetLeft) - this._getOffset();
         if (this.reverse) {
             return this.getTotalSize() - (offset + this.getItemSize(item));
         } else {
@@ -42,49 +42,41 @@ export default class Sizer {
         @param {Element} item the dom element being resized
         @return {number} the width/height of an item in the container
     */
-    public getItemSize(item: HTMLElement): number {
+    getItemSize(item) {
         return this.vertical ? item.offsetHeight : item.offsetWidth;
     }
 
     /** @return {number} the width/height of the container */
-    public getTotalSize(): number {
+    getTotalSize() {
         return this.vertical ? this.container.offsetHeight : this.container.offsetWidth;
     }
 
     /** @return {number} container offset to offsetParent */
-    private getOffset(): number {
+    _getOffset() {
         return this.vertical ? this.container.offsetTop : this.container.offsetLeft;
     }
 
     /** @return {number} container offset to document */
-    private getPageOffset(): number {
+    _getPageOffset() {
         let element = this.container;
         let offset = 0;
         while (element) {
             const pos = this.vertical ? element.offsetTop : element.offsetLeft;
             offset = offset + pos;
-            element = <HTMLElement>element.offsetParent;
+            element = element.offsetParent;
         }
         return offset;
     }
 
-    public getDesiredItemSize(item: HTMLElement) {
+    setItemSize(item, size) {
         if (this.vertical) {
-            return item.style.height;
+            item.style.height = `${Math.round(size)}px`;
         } else {
-            return item.style.width;
+            item.style.width = `${Math.round(size)}px`;
         }
     }
 
-    public setItemSize(item: HTMLElement, size: string) {
-        if (this.vertical) {
-            item.style.height = size;
-        } else {
-            item.style.width = size;
-        }
-    }
-
-    public clearItemSize(item: HTMLElement) {
+    clearItemSize(item) {
         if (this.vertical) {
             item.style.height = null;
         } else {
@@ -92,21 +84,17 @@ export default class Sizer {
         }
     }
 
-    public start(item: HTMLElement) {}
-
-    public finish(item: HTMLElement) {}
-
     /**
         @param {MouseEvent} event the mouse event
         @return {number} the distance between the cursor and the edge of the container,
             along the applicable axis (vertical or horizontal)
     */
-    public offsetFromEvent(event: MouseEvent) {
+    offsetFromEvent(event) {
         const pos = this.vertical ? event.pageY : event.pageX;
         if (this.reverse) {
-            return (this.getPageOffset() + this.getTotalSize()) - pos;
+            return (this._getPageOffset() + this.getTotalSize()) - pos;
         } else {
-            return pos - this.getPageOffset();
+            return pos - this._getPageOffset();
         }
     }
 }
