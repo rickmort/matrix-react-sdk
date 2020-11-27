@@ -1,4 +1,4 @@
-matrix-react-sdk for Planet Decred chat
+matrix-react-sdk for Planet Decred Chat
 ================
 
 This package provides the React components needed to build a Matrix web client
