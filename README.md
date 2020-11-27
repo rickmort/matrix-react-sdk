@@ -1,5 +1,7 @@
-matrix-react-sdk for Planet Decred chat
+matrix-react-sdk
 ================
+
+This is a react-based SDK for inserting a Matrix chat/voip client into a web page.
 
 This package provides the React components needed to build a Matrix web client
 using React.  It is not useable in isolation, and instead must be used from
@@ -14,6 +16,10 @@ As of Aug 2018, the only skin that exists is `vector-im/element-web`; it and
 be considered as a single project (for instance, matrix-react-sdk bugs
 are currently filed against vector-im/element-web rather than this project).
 
+Translation Status
+==================
+[![Translation status](https://translate.element.io/widgets/element-web/-/multi-auto.svg)](https://translate.element.io/engage/element-web/?utm_source=widget)
+
 Developer Guide
 ===============
 
@@ -24,12 +30,28 @@ Platform Targets:
    iOS (https://github.com/matrix-org/matrix-ios-kit) and Android
    (https://github.com/matrix-org/matrix-android-sdk) SDKs.
 
-### structures and views.  
-'structures' are stateful components which handle the
-more complicated business logic of the app, delegating their actual presentation
-rendering to stateless 
+All code lands on the `develop` branch - `master` is only used for stable releases.
+**Please file PRs against `develop`!!**
 
-'view' components.  For instance, the RoomView component
+Please follow the standard Matrix contributor's guide:
+https://github.com/matrix-org/matrix-js-sdk/blob/develop/CONTRIBUTING.rst
+
+Please follow the Matrix JS/React code style as per:
+https://github.com/matrix-org/matrix-react-sdk/blob/master/code_style.md
+
+Code should be committed as follows:
+ * All new components: https://github.com/matrix-org/matrix-react-sdk/tree/master/src/components
+ * Element-specific components: https://github.com/vector-im/element-web/tree/master/src/components
+   * In practice, `matrix-react-sdk` is still evolving so fast that the maintenance
+     burden of customising and overriding these components for Element can seriously
+     impede development.  So right now, there should be very few (if any) customisations for Element.
+ * CSS: https://github.com/matrix-org/matrix-react-sdk/tree/master/res/css
+ * Theme specific CSS & resources: https://github.com/matrix-org/matrix-react-sdk/tree/master/res/themes
+
+React components in matrix-react-sdk are come in two different flavours:
+'structures' and 'views'.  Structures are stateful components which handle the
+more complicated business logic of the app, delegating their actual presentation
+rendering to stateless 'view' components.  For instance, the RoomView component
 that orchestrates the act of visualising the contents of a given Matrix chat room
 tracks lots of state for its child components which it passes into them for visual
 rendering via props.
@@ -93,6 +115,18 @@ practices that anyone working with the SDK needs to be be aware of and uphold:
     generally not cool and stop the component from being reused easily in
     different places.
 
+Originally `matrix-react-sdk` followed the Atomic design pattern as per
+http://patternlab.io to try to encourage a modular architecture.  However, we
+found that the grouping of components into atoms/molecules/organisms
+made them harder to find relative to a functional split, and didn't emphasise
+the distinction between 'structural' and 'view' components, so we backed away
+from it.
+
+Github Issues
+=============
+
+All issues should be filed under https://github.com/vector-im/element-web/issues
+for now.
 
 Development
 ===========
@@ -111,7 +145,7 @@ you should set up `matrix-js-sdk`:
 ```bash
 git clone https://github.com/matrix-org/matrix-js-sdk
 cd matrix-js-sdk
-git checkout master
+git checkout develop
 yarn link
 yarn install
 ```
@@ -119,11 +153,26 @@ yarn install
 Then check out `matrix-react-sdk` and pull in dependencies:
 
 ```bash
-git clone https://github.com/planetdecred/matrix-react-sdk.git
+git clone https://github.com/matrix-org/matrix-react-sdk
 cd matrix-react-sdk
+git checkout develop
 yarn link matrix-js-sdk
 yarn install
 ```
 
 See the [help for `yarn link`](https://classic.yarnpkg.com/docs/cli/link) for
 more details about this.
+
+Running tests
+=============
+
+Ensure you've followed the above development instructions and then:
+
+```bash
+yarn test
+```
+
+## End-to-End tests
+
+Make sure you've got your Element development server running (by doing `yarn start` in element-web), and then in this project, run `yarn run e2etests`.
+See `test/end-to-end-tests/README.md` for more information.
