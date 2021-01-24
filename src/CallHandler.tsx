@@ -79,6 +79,12 @@ import { ElementWidgetActions } from "./stores/widgets/ElementWidgetActions";
 import { MatrixCall, CallErrorCode, CallState, CallEvent, CallParty, CallType } from "matrix-js-sdk/src/webrtc/call";
 import Analytics from './Analytics';
 import CountlyAnalytics from "./CountlyAnalytics";
+import {UIFeature} from "./settings/UIFeature";
+import { CallError } from "matrix-js-sdk/src/webrtc/call";
+import { logger } from 'matrix-js-sdk/src/logger';
+import { Action } from './dispatcher/actions';
+
+const CHECK_PSTN_SUPPORT_ATTEMPTS = 3;
 
 enum AudioID {
     Ring = 'ringAudio',
@@ -113,8 +119,11 @@ function getRemoteAudioElement(): HTMLAudioElement {
 }
 
 export default class CallHandler {
-    private calls = new Map<string, MatrixCall>();
+    private calls = new Map<string, MatrixCall>(); // roomId -> call
     private audioPromises = new Map<AudioID, Promise<void>>();
+    private dispatcherRef: string = null;
+    private supportsPstnProtocol = null;
+    private pstnSupportCheckTimer: NodeJS.Timeout; // number actually because we're in the browser
 
     static sharedInstance() {
         if (!window.mxCallHandler) {
@@ -124,8 +133,8 @@ export default class CallHandler {
         return window.mxCallHandler;
     }
 
-    constructor() {
-        dis.register(this.onAction);
+    start() {
+        this.dispatcherRef = dis.register(this.onAction);
         // add empty handlers for media actions, otherwise the media keys
         // end up causing the audio elements with our ring/ringback etc
         // audio clips in to play.
@@ -137,6 +146,60 @@ export default class CallHandler {
             navigator.mediaSession.setActionHandler('previoustrack', function() {});
             navigator.mediaSession.setActionHandler('nexttrack', function() {});
         }
+
+        if (SettingsStore.getValue(UIFeature.Voip)) {
+            MatrixClientPeg.get().on('Call.incoming', this.onCallIncoming);
+        }
+
+        this.checkForPstnSupport(CHECK_PSTN_SUPPORT_ATTEMPTS);
+    }
+
+    stop() {
+        const cli = MatrixClientPeg.get();
+        if (cli) {
+            cli.removeListener('Call.incoming', this.onCallIncoming);
+        }
+        if (this.dispatcherRef !== null) {
+            dis.unregister(this.dispatcherRef);
+            this.dispatcherRef = null;
+        }
+    }
+
+    private async checkForPstnSupport(maxTries) {
+        try {
+            const protocols = await MatrixClientPeg.get().getThirdpartyProtocols();
+            if (protocols['im.vector.protocol.pstn'] !== undefined) {
+                this.supportsPstnProtocol = protocols['im.vector.protocol.pstn'];
+            } else if (protocols['m.protocol.pstn'] !== undefined) {
+                this.supportsPstnProtocol = protocols['m.protocol.pstn'];
+            } else {
+                this.supportsPstnProtocol = null;
+            }
+            dis.dispatch({action: Action.PstnSupportUpdated});
+        } catch (e) {
+            if (maxTries === 1) {
+                console.log("Failed to check for pstn protocol support and no retries remain: assuming no support", e);
+            } else {
+                console.log("Failed to check for pstn protocol support: will retry", e);
+                this.pstnSupportCheckTimer = setTimeout(() => {
+                    this.checkForPstnSupport(maxTries - 1);
+                }, 10000);
+            }
+        }
+    }
+
+    getSupportsPstnProtocol() {
+        return this.supportsPstnProtocol;
+    }
+
+    private onCallIncoming = (call) => {
+        // we dispatch this synchronously to make sure that the event
+        // handlers on the call are set up immediately (so that if
+        // we get an immediate hangup, we don't get a stuck call)
+        dis.dispatch({
+            action: 'incoming_call',
+            call: call,
+        }, true);
     }
 
     getCallForRoom(roomId: string): MatrixCall {
@@ -150,6 +213,28 @@ export default class CallHandler {
             }
         }
         return null;
+    }
+
+    getAllActiveCalls() {
+        const activeCalls = [];
+
+        for (const call of this.calls.values()) {
+            if (call.state !== CallState.Ended && call.state !== CallState.Ringing) {
+                activeCalls.push(call);
+            }
+        }
+        return activeCalls;
+    }
+
+    getAllActiveCallsNotInRoom(notInThisRoomId) {
+        const callsNotInThatRoom = [];
+
+        for (const [roomId, call] of this.calls.entries()) {
+            if (roomId !== notInThisRoomId && call.state !== CallState.Ended) {
+                callsNotInThatRoom.push(call);
+            }
+        }
+        return callsNotInThatRoom;
     }
 
     play(audioId: AudioID) {
@@ -204,11 +289,17 @@ export default class CallHandler {
     }
 
     private setCallListeners(call: MatrixCall) {
-        call.on(CallEvent.Error, (err) => {
+        call.on(CallEvent.Error, (err: CallError) => {
             if (!this.matchesCallForThisRoom(call)) return;
 
-            Analytics.trackEvent('voip', 'callError', 'error', err);
+            Analytics.trackEvent('voip', 'callError', 'error', err.toString());
             console.error("Call error:", err);
+
+            if (err.code === CallErrorCode.NoUserMedia) {
+                this.showMediaCaptureError(call);
+                return;
+            }
+
             if (
                 MatrixClientPeg.get().getTurnServers().length === 0 &&
                 SettingsStore.getValue("fallbackICEServerAllowed") === null
@@ -277,13 +368,15 @@ export default class CallHandler {
                         Modal.createTrackedDialog('Call Handler', 'Call Failed', ErrorDialog, {
                             title, description,
                         });
-                    } else if (call.hangupReason === CallErrorCode.AnsweredElsewhere) {
-                        this.play(AudioID.Busy);
+                    } else if (
+                        call.hangupReason === CallErrorCode.AnsweredElsewhere && oldState === CallState.Connecting
+                    ) {
                         Modal.createTrackedDialog('Call Handler', 'Call Failed', ErrorDialog, {
                             title: _t("Answered Elsewhere"),
                             description: _t("The call was answered on another device."),
                         });
-                    } else {
+                    } else if (oldState !== CallState.Fledgling) {
+                        // don't play the end-call sound for calls that never got off the ground
                         this.play(AudioID.CallEnd);
                     }
             }
@@ -355,6 +448,34 @@ export default class CallHandler {
         }, null, true);
     }
 
+    private showMediaCaptureError(call: MatrixCall) {
+        let title;
+        let description;
+
+        if (call.type === CallType.Voice) {
+            title = _t("Unable to access microphone");
+            description = <div>
+                {_t(
+                    "Call failed because microphone could not be accessed. " +
+                    "Check that a microphone is plugged in and set up correctly.",
+                )}
+            </div>;
+        } else if (call.type === CallType.Video) {
+            title = _t("Unable to access webcam / microphone");
+            description = <div>
+                {_t("Call failed because webcam or microphone could not be accessed. Check that:")}
+                <ul>
+                    <li>{_t("A microphone and webcam are plugged in and set up correctly")}</li>
+                    <li>{_t("Permission is granted to use the webcam")}</li>
+                    <li>{_t("No other application is using the webcam")}</li>
+                </ul>
+            </div>;
+        }
+
+        Modal.createTrackedDialog('Media capture failed', '', ErrorDialog, {
+            title, description,
+        }, null, true);
+    }
 
     private placeCall(
         roomId: string, type: PlaceCallType,
@@ -366,6 +487,8 @@ export default class CallHandler {
         this.calls.set(roomId, call);
         this.setCallListeners(call);
         this.setCallAudioElement(call);
+
+        this.setActiveCallRoomId(roomId);
 
         if (type === PlaceCallType.Voice) {
             call.placeVoiceCall();
@@ -395,19 +518,20 @@ export default class CallHandler {
         switch (payload.action) {
             case 'place_call':
                 {
-                    if (this.getAnyActiveCall()) {
-                        Modal.createTrackedDialog('Call Handler', 'Existing Call', ErrorDialog, {
-                            title: _t('Existing Call'),
-                            description: _t('You are already in a call.'),
-                        });
-                        return; // don't allow >1 call to be placed.
-                    }
-
                     // if the runtime env doesn't do VoIP, whine.
                     if (!MatrixClientPeg.get().supportsVoip()) {
                         Modal.createTrackedDialog('Call Handler', 'VoIP is unsupported', ErrorDialog, {
                             title: _t('VoIP is unsupported'),
                             description: _t('You cannot place VoIP calls in this browser.'),
+                        });
+                        return;
+                    }
+
+                    // don't allow > 2 calls to be placed.
+                    if (this.getAllActiveCalls().length > 1) {
+                        Modal.createTrackedDialog('Call Handler', 'Existing Call', ErrorDialog, {
+                            title: _t('Too Many Calls'),
+                            description: _t("You've reached the maximum number of simultaneous calls."),
                         });
                         return;
                     }
@@ -455,24 +579,21 @@ export default class CallHandler {
                 break;
             case 'incoming_call':
                 {
-                    if (this.getAnyActiveCall()) {
-                        // ignore multiple incoming calls. in future, we may want a line-1/line-2 setup.
-                        // we avoid rejecting with "busy" in case the user wants to answer it on a different device.
-                        // in future we could signal a "local busy" as a warning to the caller.
-                        // see https://github.com/vector-im/vector-web/issues/1964
-                        return;
-                    }
-
                     // if the runtime env doesn't do VoIP, stop here.
                     if (!MatrixClientPeg.get().supportsVoip()) {
                         return;
                     }
 
                     const call = payload.call as MatrixCall;
+
+                    if (this.getCallForRoom(call.roomId)) {
+                        // ignore multiple incoming calls to the same room
+                        return;
+                    }
+
                     Analytics.trackEvent('voip', 'receiveCall', 'type', call.type);
                     this.calls.set(call.roomId, call)
                     this.setCallListeners(call);
-                    this.setCallAudioElement(call);
                 }
                 break;
             case 'hangup':
@@ -485,14 +606,26 @@ export default class CallHandler {
                 } else {
                     this.calls.get(payload.room_id).hangup(CallErrorCode.UserHangup, false);
                 }
-                this.removeCallForRoom(payload.room_id);
+                // don't remove the call yet: let the hangup event handler do it (otherwise it will throw
+                // the hangup event away)
                 break;
             case 'answer': {
                 if (!this.calls.has(payload.room_id)) {
                     return; // no call to answer
                 }
+
+                if (this.getAllActiveCalls().length > 1) {
+                    Modal.createTrackedDialog('Call Handler', 'Existing Call', ErrorDialog, {
+                        title: _t('Too Many Calls'),
+                        description: _t("You've reached the maximum number of simultaneous calls."),
+                    });
+                    return;
+                }
+
                 const call = this.calls.get(payload.room_id);
                 call.answer();
+                this.setCallAudioElement(call);
+                this.setActiveCallRoomId(payload.room_id);
                 CountlyAnalytics.instance.trackJoinCall(payload.room_id, call.type === CallType.Video, false);
                 dis.dispatch({
                     action: "view_room",
@@ -501,6 +634,33 @@ export default class CallHandler {
                 break;
             }
         }
+    }
+
+    setActiveCallRoomId(activeCallRoomId: string) {
+        logger.info("Setting call in room " + activeCallRoomId + " active");
+
+        for (const [roomId, call] of this.calls.entries()) {
+            if (call.state === CallState.Ended) continue;
+
+            if (roomId === activeCallRoomId) {
+                call.setRemoteOnHold(false);
+            } else {
+                logger.info("Holding call in room " + roomId + " because another call is being set active");
+                call.setRemoteOnHold(true);
+            }
+        }
+    }
+
+    /**
+     * @returns true if we are currently in any call where we haven't put the remote party on hold
+     */
+    hasAnyUnheldCall() {
+        for (const call of this.calls.values()) {
+            if (call.state === CallState.Ended) continue;
+            if (!call.isRemoteOnHold()) return true;
+        }
+
+        return false;
     }
 
     private async startCallApp(roomId: string, type: string) {

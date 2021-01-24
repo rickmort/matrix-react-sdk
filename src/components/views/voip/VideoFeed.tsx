@@ -42,15 +42,25 @@ export default class VideoFeed extends React.Component<IProps> {
 
     componentDidMount() {
         this.vid.current.addEventListener('resize', this.onResize);
-        if (this.props.type === VideoFeedType.Local) {
-            this.props.call.setLocalVideoElement(this.vid.current);
-        } else {
-            this.props.call.setRemoteVideoElement(this.vid.current);
+        this.setVideoElement();
+    }
+
+    componentDidUpdate(prevProps) {
+        if (this.props.call !== prevProps.call) {
+            this.setVideoElement();
         }
     }
 
     componentWillUnmount() {
         this.vid.current.removeEventListener('resize', this.onResize);
+    }
+
+    private setVideoElement() {
+        if (this.props.type === VideoFeedType.Local) {
+            this.props.call.setLocalVideoElement(this.vid.current);
+        } else {
+            this.props.call.setRemoteVideoElement(this.vid.current);
+        }
     }
 
     onResize = (e) => {
@@ -73,8 +83,6 @@ export default class VideoFeed extends React.Component<IProps> {
         let videoStyle = {};
         if (this.props.maxHeight) videoStyle = { maxHeight: this.props.maxHeight };
 
-        return <div className={classnames(videoClasses)}>
-            <video ref={this.vid} style={videoStyle}></video>
-        </div>;
+        return <video className={classnames(videoClasses)} ref={this.vid} style={videoStyle} />;
     }
 }

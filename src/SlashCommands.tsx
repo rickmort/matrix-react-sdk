@@ -46,6 +46,7 @@ import { EffectiveMembership, getEffectiveMembership, leaveRoomBehaviour } from 
 import SdkConfig from "./SdkConfig";
 import SettingsStore from "./settings/SettingsStore";
 import {UIFeature} from "./settings/UIFeature";
+import {CHAT_EFFECTS} from "./effects"
 import CallHandler from "./CallHandler";
 
 // XXX: workaround for https://github.com/microsoft/TypeScript/issues/31816
@@ -78,6 +79,7 @@ export const CommandCategories = {
     "actions": _td("Actions"),
     "admin": _td("Admin"),
     "advanced": _td("Advanced"),
+    "effects": _td("Effects"),
     "other": _td("Other"),
 };
 
@@ -157,6 +159,32 @@ export const Commands = [
         description: _td('Prepends ¯\\_(ツ)_/¯ to a plain-text message'),
         runFn: function(roomId, args) {
             let message = '¯\\_(ツ)_/¯';
+            if (args) {
+                message = message + ' ' + args;
+            }
+            return success(MatrixClientPeg.get().sendTextMessage(roomId, message));
+        },
+        category: CommandCategories.messages,
+    }),
+    new Command({
+        command: 'tableflip',
+        args: '<message>',
+        description: _td('Prepends (╯°□°）╯︵ ┻━┻ to a plain-text message'),
+        runFn: function(roomId, args) {
+            let message = '(╯°□°）╯︵ ┻━┻';
+            if (args) {
+                message = message + ' ' + args;
+            }
+            return success(MatrixClientPeg.get().sendTextMessage(roomId, message));
+        },
+        category: CommandCategories.messages,
+    }),
+    new Command({
+        command: 'unflip',
+        args: '<message>',
+        description: _td('Prepends ┬──┬ ノ( ゜-゜ノ) to a plain-text message'),
+        runFn: function(roomId, args) {
+            let message = '┬──┬ ノ( ゜-゜ノ)';
             if (args) {
                 message = message + ' ' + args;
             }
@@ -1093,6 +1121,30 @@ export const Commands = [
         description: _td('Displays action'),
         category: CommandCategories.messages,
         hideCompletionAfterSpace: true,
+    }),
+
+    ...CHAT_EFFECTS.map((effect) => {
+        return new Command({
+            command: effect.command,
+            description: effect.description(),
+            args: '<message>',
+            runFn: function(roomId, args) {
+                return success((async () => {
+                    if (!args) {
+                        args = effect.fallbackMessage();
+                        MatrixClientPeg.get().sendEmoteMessage(roomId, args);
+                    } else {
+                        const content = {
+                            msgtype: effect.msgType,
+                            body: args,
+                        };
+                        MatrixClientPeg.get().sendMessage(roomId, content);
+                    }
+                    dis.dispatch({action: `effects.${effect.command}`});
+                })());
+            },
+            category: CommandCategories.effects,
+        })
     }),
 ];
 
