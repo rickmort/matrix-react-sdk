@@ -111,7 +111,7 @@ you should set up `matrix-js-sdk`:
 ```bash
 $ git clone https://github.com/matrix-org/matrix-js-sdk
 $ cd matrix-js-sdk
-$ git checkout v9.2.0
+$ git checkout v9.5.0
 $ yarn link
 $ yarn install
 ```
